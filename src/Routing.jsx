@@ -13,7 +13,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
 
 const stripePromise = loadStripe(
-  "pk_test_51Q1TSRGzcz8bMmnvLq7uz9hGbuePLLq6WiaR9xOvPknldjWxjDsJiAyRRt1D5JWA5Cn5B9K85U16G8zF5IQGktMB00XWuCEML7"
+  "pk_test_51Q2FTVC0KxdOHqhROuT5NG60nQYqviodgzWKAAhp0hMiyhTRhUVsYiSxgzGXddWwvXSGKAOL7m29Zt5llrMU0F1E00EZQbMCtR"
 );
 
 const Routing = () => {

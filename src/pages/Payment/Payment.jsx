@@ -1,83 +1,89 @@
 import React, { useContext, useState } from "react";
-import classes from "./payment.module.css";
-import { DataContext } from "../../components/DataProvider/DataProvider";
-import ProductCard from "../../components/Product/ProductCard";
-import {
-  useStripe,
-  useElements,
-  PaymentElement,
-  CardElement,
-} from "@stripe/react-stripe-js";
-import { axiosInstace } from "../../API/axios";
-import { ClipLoader } from "react-spinners";
-import { db } from "../../Utility/firebase";
-import { useNavigate } from "react-router-dom";
-import { Type } from "../../Utility/action.type";
+import LayOut from "../../components/LayOut/LayOut"; // Importing the layout component for common UI elements
+import classes from "./Payment.module.css"; // Importing CSS module for custom payment page styles
+import { DataContext } from "../../components/DataProvider/DataProvider"; // Importing global state
+import ProductCard from "../../components/Product/ProductCard"; // Importing the ProductCard component to display the products in the basket
+import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js"; // Importing Stripe hooks and components for payment processing
+import CurrencyFormat from "../../components/CurrencyFormat/CurrencyFormat"; // Importing custom currency formatting component
+import { axiosInstance } from "../../API/axios"; // Importing axios instance for making HTTP requests
+import { ClipLoader } from "react-spinners"; // Importing a loading spinner
+import { db } from "../../Utility/firebase"; // Importing Firebase for storing order data
+import { useNavigate } from "react-router-dom"; // Importing useNavigate hook for routing
+import { Type } from "../../Utility/action.type"; // Importing action types for the reducer
+import { setDoc,doc,collection } from "firebase/firestore";
 
-const Payment = () => {
-  const [{ user, basket }, dispatch] = useContext(DataContext);
-  const [cardError, setCardError] = useState(null);
-  // console.log(user);
-  const totalItem = basket?.reduce((amount, item) => {
-    return item.amount + amount;
-  }, 0);
+// Functional component for handling the payment process
+function Payment() {
+  const [{ basket, user }, dispatch] = useContext(DataContext); // Accessing the basket and user from global state
+  const totalItem = basket?.reduce((amount, item) => item.amount + amount, 0); // Calculating total items in the basket
+  const total = basket?.reduce(
+    (amount, item) => item.price * item.amount + amount,
+    0
+  ); // Calculating the total price of items in the basket
 
-  const total = basket.reduce((amount, item) => {
-    return item.price * item.amount + amount;
-  }, 0);
+  const [cardError, setCardError] = useState(null); // State to track any card-related errors
+  const [processing, setProcessing] = useState(false); // State to track if payment is being processed
 
-  const [processing, setProcessing] = useState(false);
+  const stripe = useStripe(); // Stripe hook to access Stripe functionality
+  const elements = useElements(); // Stripe hook to access the card input elements
+  const navigate = useNavigate(); // Hook for navigation
 
-  const stripe = useStripe();
-  const elements = useElements();
-  const navigate = useNavigate();
-
+  // Function to handle changes in the card input and set card error messages
   const handleChange = (e) => {
-    // console.log(e);
-    e?.error?.message ? setCardError(e?.error?.message) : setCardError("");
+    setCardError(e?.error?.message || ""); // Set card error message if any
   };
 
+  // Function to handle the payment process
   const handlePayment = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent the default form submission behavior
+    if (basket.length === 0) {
+      setCardError("Your basket is empty."); // If the basket is empty, show an error
+      return;
+    }
 
     try {
-      setProcessing(true);
-      // 1.backend || functions ---> contact to the client secret
-      const response = await axiosInstace({
-        method: "POST",
-        url: `/payment/create?total=${total * 100}`,
-      });
-      // console.log(response.data);
-      const clientSecret = response.data?.clientSecret;
-      // 2. client side (react side confirmation)
+      setProcessing(true); // Start processing the payment
 
+      // Make a request to the backend to create a payment intent with Stripe
+      const response = await axiosInstance({
+        method: "POST",
+        url: `/payment/create?total=${total * 100}`, // Stripe expects the amount in cents, so multiply by 100
+      });
+
+      const clientSecret = response.data?.clientSecret; // Get the client secret from the response
+console.log(clientSecret)
+      // Confirm the card payment with Stripe
       const { paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
-          card: elements.getElement(CardElement),
+          card: elements.getElement(CardElement), // Get the card details from the CardElement
         },
       });
-      // console.log(paymentIntent);
+console.log(paymentIntent)
+      // Store the order in Firebase Firestore
+      try {
+        await setDoc(
+          doc(collection(db, "user"), user.uid, "orders", paymentIntent.id),
+          {
+            basket: basket,
+            amount: paymentIntent.amount,
+            created: paymentIntent.created,
+          }
+        );
+        console.log("Order saved successfully!");
+        dispatch({ type: Type.EMPTY_BASKET });
+        navigate("/orders", { state: { msg: "you have placed new order" } });
+      } catch (error) {
+        console.error("Error writing document: ", error);
+      }
 
-      // 3. after the confirmation ---> order firestore database Save, clear basket
-
-      await db
-        .collection("users")
-        .doc(user.uid)
-        .collection("orders")
-        .doc(paymentIntent.id)
-        .set({
-          basket: basket,
-          amount: paymentIntent.amount,
-          created: paymentIntent.created,
-        });
-      // Empty in the basket
+      // Clear the basket after successful payment
       dispatch({ type: Type.EMPTY_BASKET });
 
-      setProcessing(false);
-      navigate("/orders", { state: { msg: "You have placed new order" } });
+      setProcessing(false); // Stop processing
+      navigate("/orders", { state: { msg: "You have placed a new order" } }); // Navigate to the orders page with a success message
     } catch (error) {
-      console.log("can't fetch", error);
-      setProcessing(false);
+      setCardError(error.message || "Payment failed. Please try again."); // Handle payment errors
+      setProcessing(false); // Stop processing if there is an error
     }
   };
 
@@ -142,6 +148,6 @@ const Payment = () => {
       </section>
     </>
   );
-};
+}
 
 export default Payment;

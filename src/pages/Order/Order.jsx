@@ -3,6 +3,7 @@ import { db } from "../../Utility/firebase";
 import { DataContext } from "../../components/DataProvider/DataProvider";
 import classes from "./order.module.css";
 import ProductCard from "../../components/Product/ProductCard";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 const Order = () => {
   const [{ user }, dispatch] = useContext(DataContext);
@@ -10,19 +11,17 @@ const Order = () => {
 
   useEffect(() => {
     if (user) {
-      db.collection("users")
-        .doc(user.uid)
-        .collection("orders")
-        .orderBy("created", "desc")
-        .onSnapshot((snapshot) => {
-          // console.log(snapshot);
-          setOrders(
-            snapshot.docs.map((doc) => ({
-              id: doc.id,
-              data: doc.data(),
-            }))
-          );
-        });
+      const ordersRef = collection(db, "user", user.uid, "orders");
+      const ordersQuery = query(ordersRef, orderBy("created", "desc"));
+      const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+        // console.log(snapshot);
+        setOrders(
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            data: doc.data(),
+          }))
+        );
+      });
     } else {
       setOrders([]);
     }
