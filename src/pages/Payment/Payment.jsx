@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import LayOut from "../../components/LayOut/LayOut"; // Importing the layout component for common UI elements
-import classes from "./Payment.module.css"; // Importing CSS module for custom payment page styles
+import classes from "./payment.module.css"; // Importing CSS module for custom payment page styles
 import { DataContext } from "../../components/DataProvider/DataProvider"; // Importing global state
 import ProductCard from "../../components/Product/ProductCard"; // Importing the ProductCard component to display the products in the basket
 import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js"; // Importing Stripe hooks and components for payment processing
